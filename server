@@ -1,39 +1,25 @@
-var Redis = require('ioredis');
 var express = require('express');
 var app = express();
-var redis_config = require('./redis.js');
 var header = ``;
+const CONFIG = require('./config/config');
+const keyRoutes = require('./routes/keys');
+const authorRoutes = require('./routes/autor');
+const { redis } = require('./DB/redis.js');
+
+app.use(express.static(__dirname + '/public'));
 
 // dostęp do zdalej bazy
-var redis = new Redis({
-  port: 13914,
-  host: 'redis-13914.c1.us-east1-2.gce.cloud.redislabs.com',
-  family: 4,
-  password: 'J7J0VxGwFbFGW72qAh1K72MNdkcITNjP',
-  db: 0,
-});
 
-function buildHtml(req, header, body) {
-  return (
-    '<!DOCTYPE html>' +
-    '<html><head>' +
-    header +
-    '</head><body>' +
-    body +
-    '</body></html>'
-  );
-}
-
-app.get('/', function (req, res) {
-  redis.get(`aplikacja`, function (err, app) {
-    redis.get(`uczelnia`, function (err, uczelnia) {
-      redis.get(`autor`, function (err, autor) {
-        redis.get(`indeks`, function (err, idx) {
-          let body = `
+app.get('/', (req, res) => {
+  redis.get(`aplikacja`, (err, app) => {
+    redis.get(`uczelnia`, (err, uczelnia) => {
+      redis.get(`autor`, (err, autor) => {
+        redis.get(`indeks`, (err, idx) => {
+          const body = `
                         <center>
                             <h1>${app}</h1>
                             <img height="10%" width="10%" src='https://pcz.pl/fcp/aGBUKOQtTKlQhbx08SlkTUQdKUWRuHQwFDBoIVURNFDgPW1ZpCFghUHcKVigEQR1BXQEsKTwdAQsKJBVYCRlYdxdFDy5IGzpEMEIrMQxBC0EGRUtwf08Q/_users/code_YCFYXIghYYUQ6UhciCQgDI0QRCWY8AQ/kamila/logo/logo_paczka/logo_pl/pcz_logo_piol_pion_kolor.png'>
-                            <h1>${uczelnia}</h1>
+                            <h1 style="color:red"}> ${uczelnia}</h1>
                             <h1>${autor} - ${idx}</h1>
                             <h2>Zadanie 4</h2>
                             <a href="/autor">4.1 Autor</a><br><br>
@@ -63,40 +49,11 @@ app.get('/', function (req, res) {
 
 //4.1
 //odczyt pojedynczych danych
-app.get('/autor', function (req, res) {
-  redis.get('autor', function (err, result) {
-    body = `Autorem sprawozdania jest ${result} <br><br><br> <a href="/">Strona główna</a>`;
-    res.send(buildHtml(req, header, body));
-  });
-});
+app.use(authorRoutes);
 
 //4.2
 //odczyt dwóch lub więcej kluczy dla jednego adresu URL
-app.get('/keys', function (req, res) {
-  var list = `<table style="width:30%">
-                    <tr>
-                    <th>Lp</th>
-                    <th>Klucz</th>
-                    </tr>
-                `;
-
-  redis.keys('*', function (err, result) {
-    for (var i = 0; i < result.length; ++i) {
-      list +=
-        `<tr>
-                <td> ` +
-        (i + 1) +
-        `</td>` +
-        `<td>` +
-        result[i] +
-        `</td>`;
-    }
-    list += `</table>`;
-
-    body = `${list} <br><br><br> <a href="/">Strona główna</a>`;
-    res.send(buildHtml(req, header, body));
-  });
-});
+app.use(keyRoutes);
 
 //4.3
 app.get('/tab', function (req, res) {
@@ -331,6 +288,6 @@ app.get('/wykladowcy_przedmioty', function (req, res) {
   });
 });
 
-app.listen(8080, function () {
+app.listen(CONFIG.port, () => {
   console.log('Aplikacja została uruchomiona na porcie 8080!');
 });
