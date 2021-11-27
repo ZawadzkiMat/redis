@@ -1,7 +1,8 @@
 var Redis = require('ioredis');
 var express = require('express');
 var app = express();
-var header =``;
+var redis_config = require('./redis.js');
+var header = ``;
 
 // dostęp do zdalej bazy
 var redis = new Redis({
@@ -9,21 +10,26 @@ var redis = new Redis({
   host: 'redis-13914.c1.us-east1-2.gce.cloud.redislabs.com',
   family: 4,
   password: 'J7J0VxGwFbFGW72qAh1K72MNdkcITNjP',
-  db: 0
-})
-
+  db: 0,
+});
 
 function buildHtml(req, header, body) {
-    return '<!DOCTYPE html>'
-        + '<html><head>' + header + '</head><body>' + body + '</body></html>';
-};
+  return (
+    '<!DOCTYPE html>' +
+    '<html><head>' +
+    header +
+    '</head><body>' +
+    body +
+    '</body></html>'
+  );
+}
 
 app.get('/', function (req, res) {
-    redis.get(`aplikacja`, function (err, app) {
-        redis.get(`uczelnia`, function (err, uczelnia) {
-            redis.get(`autor`, function (err, autor) {
-                redis.get(`indeks`, function (err, idx) {
-                    let body = `
+  redis.get(`aplikacja`, function (err, app) {
+    redis.get(`uczelnia`, function (err, uczelnia) {
+      redis.get(`autor`, function (err, autor) {
+        redis.get(`indeks`, function (err, idx) {
+          let body = `
                         <center>
                             <h1>${app}</h1>
                             <img height="10%" width="10%" src='https://pcz.pl/fcp/aGBUKOQtTKlQhbx08SlkTUQdKUWRuHQwFDBoIVURNFDgPW1ZpCFghUHcKVigEQR1BXQEsKTwdAQsKJBVYCRlYdxdFDy5IGzpEMEIrMQxBC0EGRUtwf08Q/_users/code_YCFYXIghYYUQ6UhciCQgDI0QRCWY8AQ/kamila/logo/logo_paczka/logo_pl/pcz_logo_piol_pion_kolor.png'>
@@ -48,97 +54,107 @@ app.get('/', function (req, res) {
                             <a href="/wykladowcy_przedmioty">4.8 Aktywni nauczyciele</a><br><br>
                         </center>`;
 
-                    res.send(buildHtml(req, header, body))
-                });
-            });
+          res.send(buildHtml(req, header, body));
         });
+      });
     });
-})
-
+  });
+});
 
 //4.1
 //odczyt pojedynczych danych
 app.get('/autor', function (req, res) {
-    redis.get('autor', function (err, result) {
-        body = `Autorem sprawozdania jest ${result} <br><br><br> <a href="/">Strona główna</a>`
-        res.send(buildHtml(req, header, body))
-    });
-})
+  redis.get('autor', function (err, result) {
+    body = `Autorem sprawozdania jest ${result} <br><br><br> <a href="/">Strona główna</a>`;
+    res.send(buildHtml(req, header, body));
+  });
+});
 
 //4.2
 //odczyt dwóch lub więcej kluczy dla jednego adresu URL
 app.get('/keys', function (req, res) {
-    var list = `<table style="width:30%">
+  var list = `<table style="width:30%">
                     <tr>
                     <th>Lp</th>
                     <th>Klucz</th>
                     </tr>
                 `;
 
-    redis.keys('*', function (err, result) {
-        for (var i = 0; i < result.length; ++i) {
-            list += `<tr>
-                <td> ` + (i + 1) + `</td>` +
-                `<td>` + result[i] + `</td>`;
-        }
-        list += `</table>`;
+  redis.keys('*', function (err, result) {
+    for (var i = 0; i < result.length; ++i) {
+      list +=
+        `<tr>
+                <td> ` +
+        (i + 1) +
+        `</td>` +
+        `<td>` +
+        result[i] +
+        `</td>`;
+    }
+    list += `</table>`;
 
-        body = `${list} <br><br><br> <a href="/">Strona główna</a>`
-        res.send(buildHtml(req, header, body))
-    });
-})
+    body = `${list} <br><br><br> <a href="/">Strona główna</a>`;
+    res.send(buildHtml(req, header, body));
+  });
+});
 
 //4.3
 app.get('/tab', function (req, res) {
-    redis.zrange(`120484_ocena:MP`, '0', '-1', 'WITHSCORES', function (err, result) {
-        body = `${result} <br><br><br> <a href="/">Strona główna</a>`
-        res.send(buildHtml(req, header, body))
-    });
-})
+  redis.zrange(
+    `120484_ocena:MP`,
+    '0',
+    '-1',
+    'WITHSCORES',
+    function (err, result) {
+      body = `${result} <br><br><br> <a href="/">Strona główna</a>`;
+      res.send(buildHtml(req, header, body));
+    }
+  );
+});
 
 //4.4
 //wykorzystanie parametru w adresie URL
 app.get('/student/:id', function (req, res) {
-    redis.hget(`student:${req.params.id}`, `imie`, function (err, name) {
-        redis.hget(`student:${req.params.id}`, `nazwisko`, function (err, surname) {
-            body = `Imię studenta: ${name}<br> Nazwisko studenta: ${surname} <br><br><br> <a href="/">Strona główna</a>`
-            res.send(buildHtml(req, header, body))
-        });
+  redis.hget(`student:${req.params.id}`, `imie`, function (err, name) {
+    redis.hget(`student:${req.params.id}`, `nazwisko`, function (err, surname) {
+      body = `Imię studenta: ${name}<br> Nazwisko studenta: ${surname} <br><br><br> <a href="/">Strona główna</a>`;
+      res.send(buildHtml(req, header, body));
     });
-})
+  });
+});
 
 //4.5
 //wykorzystanie przetwarzania potokowego z pakietu ioredis (Pipelining)
 app.get('/wykladowcy_nazwiska', function (req, res) {
-    var list = "";
-    var wykladowca = "";
-    var pipeline = redis.pipeline();
+  var list = '';
+  var wykladowca = '';
+  var pipeline = redis.pipeline();
 
-    redis.keys('wykladowca:*:nazwisko', function (err, keys) {
-        for (var i = 0; i < keys.length; ++i) {
-            pipeline.get(keys[i]);
-            list += keys[i]
+  redis.keys('wykladowca:*:nazwisko', function (err, keys) {
+    for (var i = 0; i < keys.length; ++i) {
+      pipeline.get(keys[i]);
+      list += keys[i];
+    }
+
+    pipeline.exec(function (err, result) {
+      for (var i = 0; i < result.length; ++i) {
+        if (i % 2 != 0) {
+          wykladowca += `${result[i][1]} `;
+        } else {
+          wykladowca += `${result[i][1]} </br>`;
         }
-
-        pipeline.exec(function (err, result) {
-            for (var i = 0; i < result.length; ++i) {
-                if (i % 2 != 0) {
-                    wykladowca += `${result[i][1]} `;
-                } else {
-                    wykladowca += `${result[i][1]} </br>`
-                }
-            }
-            body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`
-            res.send(buildHtml(req, header, body))
-        });
+      }
+      body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`;
+      res.send(buildHtml(req, header, body));
     });
-})
+  });
+});
 
 //4.6
 //Lua
 redis.defineCommand('wykladowca_zajecia', {
-    numberOfKeys: 0,
-    lua: `
+  numberOfKeys: 0,
+  lua: `
         local wykladowca = redis.call('keys', 'wykladowca:*:nazwisko')
         local a, b, c
         local e, f, g
@@ -164,26 +180,25 @@ redis.defineCommand('wykladowca_zajecia', {
         end
 
         return final_list
-    `
+    `,
 });
 
 app.get('/lua', function (req, res) {
-    var list = "";
-    redis.wykladowca_zajecia(function (err, result) {
-        for (var i = 0; i < result.length; ++i) {
-            list += result[i] + '<br>'
-        }
-        body = `${list} <br><br><br> <a href="/">Strona główna</a>`
-        res.send(buildHtml(req, header, body))
-    });
+  var list = '';
+  redis.wykladowca_zajecia(function (err, result) {
+    for (var i = 0; i < result.length; ++i) {
+      list += result[i] + '<br>';
+    }
+    body = `${list} <br><br><br> <a href="/">Strona główna</a>`;
+    res.send(buildHtml(req, header, body));
+  });
 });
-
 
 //4.7.1
 //formularz pozwalający na dodawanie/aktualizację danych w bazie
 //z wykorzystaniem metody GET
 app.get('/new_student', function (req, res) {
-    var form = `
+  var form = `
         <form action="/add_student">
             Numer albumu:     <input type="number" name="id" min="10000" max="99999999">   <br>
             Imie:             <input type="text" size="60" name="imie" value="">            <br>
@@ -193,33 +208,41 @@ app.get('/new_student', function (req, res) {
             <input type="submit" value="Dodaj studenta" >
         </form>
     `;
-    body = `${form} <br><br><br> <a href="/">Strona główna</a>`
-    res.send(buildHtml(req, header, body))
-})
+  body = `${form} <br><br><br> <a href="/">Strona główna</a>`;
+  res.send(buildHtml(req, header, body));
+});
 
 app.get('/add_student', function (req, res) {
-    var key = 'student:' + req.query.id
+  var key = 'student:' + req.query.id;
 
-    redis.hmset(key, {
-        imie: `${req.query.imie}`,
-        nazwisko: `${req.query.nazwisko}`,
-        data_uro: `${req.query.data_uro}`,
-        kierunek: `${req.query.kierunek}`,
+  redis.hmset(
+    key,
+    {
+      imie: `${req.query.imie}`,
+      nazwisko: `${req.query.nazwisko}`,
+      data_uro: `${req.query.data_uro}`,
+      kierunek: `${req.query.kierunek}`,
     },
-        function (err1) {
-            if (err1 == null)
-                body = `Student ${req.query.imie} ${req.query.nazwisko} został poprawnie dodany!<br> Sprawdź studenta: <a href="${key.replace(':', '/')}">Dodany student</a><br> <br><br><br> <a href="/">Strona główna</a>`
-            else
-                body = `Wystąpił błąd podczas dodawania studenta <br><br><br> <a href="/">Strona główna</a>`
-            res.send(buildHtml(req, header, body))
-        });
-})
+    function (err1) {
+      if (err1 == null)
+        body = `Student ${req.query.imie} ${
+          req.query.nazwisko
+        } został poprawnie dodany!<br> Sprawdź studenta: <a href="${key.replace(
+          ':',
+          '/'
+        )}">Dodany student</a><br> <br><br><br> <a href="/">Strona główna</a>`;
+      else
+        body = `Wystąpił błąd podczas dodawania studenta <br><br><br> <a href="/">Strona główna</a>`;
+      res.send(buildHtml(req, header, body));
+    }
+  );
+});
 
 //4.7.2
 //formularz pozwalający na dodawanie/aktualizację danych w bazie
 //z  wykorzystaniem metody POST
 app.get('/add_class', function (req, res) {
-    var form = `
+  var form = `
         <form action="/add_class_post" method="POST">
             ID przedmiotu:      <input type="number" name="id" min="1" max="999">           <br>
             Nazwa:              <input type="text" size="60" name="nazwa" value="">         <br>
@@ -229,34 +252,33 @@ app.get('/add_class', function (req, res) {
             USOS ID:            <input type="number" name="usos_id" min="1" max="999">      <br>
             <input type="submit" value="Dodaj przedmiot">
         </form>`;
-    body = `${form} <br><br><br> <a href="/">Strona główna</a>`
-    res.send(buildHtml(req, header, body))
-})
+  body = `${form} <br><br><br> <a href="/">Strona główna</a>`;
+  res.send(buildHtml(req, header, body));
+});
 
 var bodyParser = require('body-parser');
-var urlencodedParser = bodyParser.urlencoded({ extended: false })
+var urlencodedParser = bodyParser.urlencoded({ extended: false });
 app.use(express.static('public'));
 
 app.post('/add_class_post', urlencodedParser, function (req, res) {
-    var key = 'zajecia:' + req.body.id + ':'
+  var key = 'zajecia:' + req.body.id + ':';
 
-    redis.set(key + 'nazwa', req.body.nazwa, function (err1) {
-        redis.set(key + 'skrot', req.body.skrot, function (err2) {
-            redis.set(key + 'sala', req.body.sala, function (err2) {
-                redis.set(key + 'wykładowca', req.body.wykladowca, function (err2) {
-                    redis.set(key + 'usos_id', req.body.usos_id, function (err2) {
-                        if (err1 == null && err2 == null)
-                            body = `Dodano przedmiot ${req.body.full_name} <br><br><br> <a href="/">Strona główna</a>`
-                        else
-                            body = `Wystąpił jakiś błąd <br><br><br> <a href="/">Strona główna</a>`
-                        res.send(buildHtml(req, header, body))
-                    });
-                });
-            });
+  redis.set(key + 'nazwa', req.body.nazwa, function (err1) {
+    redis.set(key + 'skrot', req.body.skrot, function (err2) {
+      redis.set(key + 'sala', req.body.sala, function (err2) {
+        redis.set(key + 'wykładowca', req.body.wykladowca, function (err2) {
+          redis.set(key + 'usos_id', req.body.usos_id, function (err2) {
+            if (err1 == null && err2 == null)
+              body = `Dodano przedmiot ${req.body.full_name} <br><br><br> <a href="/">Strona główna</a>`;
+            else
+              body = `Wystąpił jakiś błąd <br><br><br> <a href="/">Strona główna</a>`;
+            res.send(buildHtml(req, header, body));
+          });
         });
+      });
     });
-})
-
+  });
+});
 
 //4.8
 /*
@@ -264,45 +286,51 @@ wykorzystanie przetwarzania potokowego z jakimś złączeniem, czyli
 przynajmniej dwa potoki
 */
 app.get('/wykladowcy_przedmioty', function (req, res) {
-    var wykladowca_id = [];
-    var wykladowca = `<table>
+  var wykladowca_id = [];
+  var wykladowca = `<table>
         <tr>
         <th>Id</th>
         <th>Nazwisko</th>
         </tr>
     `;
 
-    var pipeline = redis.pipeline();
-    var pipeline2 = redis.pipeline();
+  var pipeline = redis.pipeline();
+  var pipeline2 = redis.pipeline();
 
-    redis.keys('zajecia:*:wykladowca', function (err, keys) {
-        for (var i = 0; i < keys.length; ++i) {
-            pipeline.get(keys[i]);
-        }
+  redis.keys('zajecia:*:wykladowca', function (err, keys) {
+    for (var i = 0; i < keys.length; ++i) {
+      pipeline.get(keys[i]);
+    }
 
-        pipeline.exec(function (err, result) {
-            for (var i = 0; i < result.length; ++i) {
-                wykladowca_id[i] = `${result[i][1]}`;
+    pipeline.exec(function (err, result) {
+      for (var i = 0; i < result.length; ++i) {
+        wykladowca_id[i] = `${result[i][1]}`;
 
-                redis.keys(`wykladowca:${result[i][1]}:nazwisko`, function (err, keys) {
-                    for (var i = 0; i < keys.length; ++i) {
-                        pipeline2.get(keys[i]);
-                    }
+        redis.keys(`wykladowca:${result[i][1]}:nazwisko`, function (err, keys) {
+          for (var i = 0; i < keys.length; ++i) {
+            pipeline2.get(keys[i]);
+          }
 
-                    pipeline2.exec(function (err, result) {
-                        for (var i = 0; i < result.length; ++i)
-                            wykladowca += `<tr> <td> ` + wykladowca_id[i] + `</td>` + `<td>` + result[i][1] + `</td>`;
-                        wykladowca += '</table>'
+          pipeline2.exec(function (err, result) {
+            for (var i = 0; i < result.length; ++i)
+              wykladowca +=
+                `<tr> <td> ` +
+                wykladowca_id[i] +
+                `</td>` +
+                `<td>` +
+                result[i][1] +
+                `</td>`;
+            wykladowca += '</table>';
 
-                        body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`
-                        res.send(buildHtml(req, header, body))
-                    });
-                });
-            }
+            body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`;
+            res.send(buildHtml(req, header, body));
+          });
         });
+      }
     });
-})
+  });
+});
 
 app.listen(8080, function () {
-    console.log('Aplikacja została uruchomiona na porcie 8080!');
+  console.log('Aplikacja została uruchomiona na porcie 8080!');
 });
