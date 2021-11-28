@@ -5,7 +5,7 @@ exports.buildHtml = (req, header, body) => {
     '<link rel="stylesheet" type="text/css" href="/public/styles/main.css" />' +
     '<html><head>' +
     header +
-    '</head><body>' +
+    '</head><body style="background-color:grey">' +
     body +
     '</body></html>'
   );

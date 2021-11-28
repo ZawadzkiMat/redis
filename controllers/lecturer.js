@@ -11,19 +11,22 @@ exports.getLecturerSurname = (req, res) => {
     let wykladowca = '';
     let pipeline = redis.pipeline();
 
-    pipeline.forEach((key) => {
-      pipeline.get(keys[i]);
-      list += keys[i];
-    });
+    redis.keys('wykladowca:*:nazwisko', function (err, keys) {
+      for (var i = 0; i < keys.length; ++i) {
+          pipeline.get(keys[i]);
+          list += keys[i]
+      }
 
-    pipeline.exec((err, result) => {
-      result.forEach((res) => {
-        wykladowca += `${res[1]} </br>`;
+      pipeline.exec(function (err, result) {
+          for (var i = 0; i < result.length; ++i) {
+            wykladowca += `${result[i][1]} </br>`
+          }
+          body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`
+          res.send(buildHtml(req, header, body))
       });
+  });
 
-      body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`;
-      res.send(buildHtml(req, header, body));
-    });
+  
   });
 };
 
@@ -40,34 +43,29 @@ exports.getLecturerClasses = (req, res) => {
   var pipeline2 = redis.pipeline();
 
   redis.keys('zajecia:*:wykladowca', function (err, keys) {
-    keys.forEach((key) => pipeline.get(key));
+    for (var i = 0; i < keys.length; ++i) {
+        pipeline.get(keys[i]);
+    }
 
-    pipeline.exec((err, lecturer) => {
-      lecturer.forEach((lecturer) => {
-        wykladowca_id.push(lecturer[1]);
+    pipeline.exec(function (err, result) {
+        for (var i = 0; i < result.length; ++i) {
+            wykladowca_id[i] = `${result[i][1]}`;
 
-        redis.keys(`wykladowca:${lecturer[1]}:nazwisko`, (err, keys) => {
-          keys.forEach((key) => {
-            pipeline2.get(key);
-          });
+            redis.keys(`wykladowca:${result[i][1]}:nazwisko`, function (err, keys) {
+                for (var i = 0; i < keys.length; ++i) {
+                    pipeline2.get(keys[i]);
+                }
 
-          pipeline2.exec((err, res2) => {
-            res2.forEach((lecturerSurname) => {
-              wykladowca +=
-                `<tr> <td> ` +
-                lecturer[1] +
-                `</td>` +
-                `<td>` +
-                lecturerSurname[1] +
-                `</td>`;
-              wykladowca += '</table>';
+                pipeline2.exec(function (err, result) {
+                    for (var i = 0; i < result.length; ++i)
+                        wykladowca += `<tr> <td> ` + wykladowca_id[i] + `</td>` + `<td>` + result[i][1] + `</td>`;
+                    wykladowca += '</table>'
 
-              body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`;
-              res.send(buildHtml(req, header, body));
+                    body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`
+                    res.send(buildHtml(req, header, body))
+                });
             });
-          });
-        });
-      });
+        }
     });
-  });
+});
 };
