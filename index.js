@@ -4,11 +4,16 @@ var header = ``;
 const CONFIG = require('./config/config');
 const keyRoutes = require('./routes/keys');
 const authorRoutes = require('./routes/autor');
+const tabRoutes = require('./routes/tab');
+const studentRoutes = require('./routes/student');
+const lectureRoutes = require('./routes/lecturerSurname');
+const luaRoutes = require('./routes/lua');
+
 const { redis } = require('./DB/redis.js');
+const { buildHtml } = require('./utils/buildHtml');
+
 
 app.use(express.static(__dirname + '/public'));
-
-// dostęp do zdalej bazy
 
 app.get('/', (req, res) => {
   redis.get(`aplikacja`, (err, app) => {
@@ -56,100 +61,19 @@ app.use(authorRoutes);
 app.use(keyRoutes);
 
 //4.3
-app.get('/tab', function (req, res) {
-  redis.zrange(
-    `120484_ocena:MP`,
-    '0',
-    '-1',
-    'WITHSCORES',
-    function (err, result) {
-      body = `${result} <br><br><br> <a href="/">Strona główna</a>`;
-      res.send(buildHtml(req, header, body));
-    }
-  );
-});
+app.use(tabRoutes);
 
 //4.4
 //wykorzystanie parametru w adresie URL
-app.get('/student/:id', function (req, res) {
-  redis.hget(`student:${req.params.id}`, `imie`, function (err, name) {
-    redis.hget(`student:${req.params.id}`, `nazwisko`, function (err, surname) {
-      body = `Imię studenta: ${name}<br> Nazwisko studenta: ${surname} <br><br><br> <a href="/">Strona główna</a>`;
-      res.send(buildHtml(req, header, body));
-    });
-  });
-});
+app.use(studentRoutes);
 
 //4.5
 //wykorzystanie przetwarzania potokowego z pakietu ioredis (Pipelining)
-app.get('/wykladowcy_nazwiska', function (req, res) {
-  var list = '';
-  var wykladowca = '';
-  var pipeline = redis.pipeline();
-
-  redis.keys('wykladowca:*:nazwisko', function (err, keys) {
-    for (var i = 0; i < keys.length; ++i) {
-      pipeline.get(keys[i]);
-      list += keys[i];
-    }
-
-    pipeline.exec(function (err, result) {
-      for (var i = 0; i < result.length; ++i) {
-        if (i % 2 != 0) {
-          wykladowca += `${result[i][1]} `;
-        } else {
-          wykladowca += `${result[i][1]} </br>`;
-        }
-      }
-      body = `${wykladowca} <br><br><br> <a href="/">Strona główna</a>`;
-      res.send(buildHtml(req, header, body));
-    });
-  });
-});
+app.use(lectureRoutes);
 
 //4.6
 //Lua
-redis.defineCommand('wykladowca_zajecia', {
-  numberOfKeys: 0,
-  lua: `
-        local wykladowca = redis.call('keys', 'wykladowca:*:nazwisko')
-        local a, b, c
-        local e, f, g
-        local final_list = {}
-
-        local zajecia = redis.call('keys', 'zajecia:*:wykladowca')
-
-        for k, v in pairs(wykladowca) do
-            a, b, c = string.match(v, "(.*)%:(.*)%:(.*)")
-            local zajecia_list = {}
-            for l, z in pairs(zajecia) do
-            e, f, g = string.match(z, "(.*)%:(.*)%:(.*)")
-            local numer_usos = redis.call('get', 'zajecia:'..f..':wykladowca')
-
-            if numer_usos == b then
-                table.insert(zajecia_list, redis.call('get', 'zajecia:'..f..':nazwa'))
-            end
-            end
-
-            final_list[k] = {b,
-                        redis.call('get', 'wykladowca:'..b..':imie'),
-                        redis.call('get', 'wykladowca:'..b..':nazwisko'), zajecia_list}
-        end
-
-        return final_list
-    `,
-});
-
-app.get('/lua', function (req, res) {
-  var list = '';
-  redis.wykladowca_zajecia(function (err, result) {
-    for (var i = 0; i < result.length; ++i) {
-      list += result[i] + '<br>';
-    }
-    body = `${list} <br><br><br> <a href="/">Strona główna</a>`;
-    res.send(buildHtml(req, header, body));
-  });
-});
+app.use(luaRoutes);
 
 //4.7.1
 //formularz pozwalający na dodawanie/aktualizację danych w bazie
