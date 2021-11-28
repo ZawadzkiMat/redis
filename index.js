@@ -2,6 +2,9 @@ const express = require('express');
 const header = ``;
 
 const CONFIG = require('./config/config');
+
+const { generateMainPageBody } = require('./utils/generateMainPageBody');
+
 const keyRoutes = require('./routes/keys');
 const authorRoutes = require('./routes/autor');
 const tabRoutes = require('./routes/tab');
@@ -17,47 +20,12 @@ const app = express();
 
 app.use(express.static('public'));
 
-const STUDENT_MOCK = [
-  { id: 127999 },
-  { id: 124785 },
-  { id: 38601 },
-  { id: 128487 },
-  { id: 125486 },
-  { id: 128201 },
-];
-
-const generateStudentsListWithHrefs = () => {
-  return STUDENT_MOCK.map((s) => {
-    return `<a href="/student/${s.id}">Student ${s.id}</a><br></br>`;
-  });
-};
-
 app.get('/', (req, res) => {
   redis.get(`aplikacja`, (err, app) => {
-    redis.get(`uczelnia`, (err, uczelnia) => {
-      redis.get(`autor`, (err, autor) => {
+    redis.get(`uczelnia`, (err, univercity) => {
+      redis.get(`autor`, (err, author) => {
         redis.get(`indeks`, (err, idx) => {
-          const body = `
-                        <center>
-                            <h1>${app}</h1>
-                            <img height="10%" width="10%" src='https://pcz.pl/fcp/aGBUKOQtTKlQhbx08SlkTUQdKUWRuHQwFDBoIVURNFDgPW1ZpCFghUHcKVigEQR1BXQEsKTwdAQsKJBVYCRlYdxdFDy5IGzpEMEIrMQxBC0EGRUtwf08Q/_users/code_YCFYXIghYYUQ6UhciCQgDI0QRCWY8AQ/kamila/logo/logo_paczka/logo_pl/pcz_logo_piol_pion_kolor.png'>
-                            <h1 style="color:red"}> ${uczelnia}</h1>
-                            <h1>${autor} - ${idx}</h1>
-                            <h2>Zadanie 4</h2>
-                            <a href="/autor">4.1 Autor</a><br><br>
-                            <a href="/keys">4.2 Klucze</a><br><br>
-                            <a href="/tab">4.3 Tablica</a><br><br>
-                            4.4 Studenci<br>
-                            ${generateStudentsListWithHrefs()}
-                            <a href="/wykladowcy_nazwiska">4.5 Nazwiska prowadzących</a><br><br>
-                            <a href="/lua">4.6 Skrypt LUA</a><br><br>
-                            4.7 Formularze<br>
-                            <a href="/new_student"> Dodawanie studenta (GET)</a><br>
-                            <a href="/add_class">Dodawanie zajęć (POST)</a><br><br>
-                            <a href="/wykladowcy_przedmioty">
-                            4.8 Aktywni nauczyciele</a><br><br>
-                        </center>`;
-
+          const body = generateMainPageBody(app, univercity, author, idx);
           res.send(buildHtml(req, header, body));
         });
       });
